@@ -15,11 +15,12 @@ public class CustomBuilder extends RouteBuilder {
 
     private final static String LOG_PATTERN = " - ${exchangeId} -> ${routeId} -> ${exchange.getFromRouteId} -> ${body}";
     private static final String LOG_NAME = "logging-route";
+    private static final String CORRELATION_HEADER = "custom.correlation-header";
 
     @Override
     public void configure() throws Exception {
         recipientListWithSedaAndAggregate();
-        //recipientListWithDirect();
+        // recipientListWithDirect();
     }
 
     private void recipientListWithSedaAndAggregate() {
@@ -28,15 +29,11 @@ public class CustomBuilder extends RouteBuilder {
         var route1 = "seda:route-1";
         var route2 = "seda:route-2";
         var route3 = "seda:route-3";        
-//        var route1 = "direct:route-1";
-//        var route2 = "direct:route-2";
-//        var route3 = "direct:route-3";
         var recipients = String.format("%s,%s,%s",route1,route2,route3);
         var aggregate = "seda:aggregate";
 
-
         from(timer + "?period=1000000").routeId(timer)
-                .setHeader("my_customCorrelationId", simple("${exchangeId}"))
+                .setHeader(CORRELATION_HEADER, simple("${exchangeId}"))
                 .setBody(simple("TIMER"))
                 .log(LoggingLevel.INFO, LOG_NAME,"TIM" + LOG_PATTERN)
                 .to(dispatch);
@@ -65,10 +62,7 @@ public class CustomBuilder extends RouteBuilder {
                 .to(aggregate);
 
         from(aggregate).routeId(aggregate)
-                // .aggregate(new CustomAggregationStrategy1()).body().completionSize(3)
-                //.aggregate(exchangeProperty(Exchange.CORRELATION_ID), new CustomAggregationStrategy2()).completionSize(3)
-                .aggregate(header("my_customCorrelationId"), new CustomAggregationStrategy2()).completionSize(3)
-                //.aggregate(new CustomAggregationStrategy2()).body().completionSize(3)
+                .aggregate(header(CORRELATION_HEADER), new CustomAggregationStrategy2()).completionSize(3)
                 .log(LoggingLevel.INFO, LOG_NAME,"AGG" + LOG_PATTERN);
 
     }    
