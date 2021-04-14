@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="2">
+    <Properties>
+        <Property name="sleuthInfo">%X{traceId}</Property>
+    </Properties>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout
+                    pattern="%style{%d{ISO8601}}{black} %highlight{%-5level }[${sleuthInfo}][%style{%t}{bright,blue}] %style{%C{1.}}{bright,yellow}: %msg%n%throwable"  disableAnsi="false" />
+        </Console>
+
+        <RollingFile name="RollingFile"
+                     fileName="./logs/camel-core.log"
+                     filePattern="./logs/$${date:yyyy-MM}/camel-core-%d{-yyyy-MM-dd}-%i.log">
+            <PatternLayout>
+                <Pattern>%d %p %c{1.} [%t] %m%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+        </RollingFile>
+        
+    </Appenders>
+
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="RollingFile" />
+        </Root>
+        <Logger name="logging-route" level="info"></Logger>
+        <Logger name="org.apache.camel.processor.aggregate.AggregateProcessor" level="info"></Logger>
+        <Logger name="org.apache.camel.impl.engine.CamelInternalProcessor" level="info"></Logger>
+        <Logger name="org.example.camel" level="info"></Logger>
+    </Loggers>
+
+</Configuration>
