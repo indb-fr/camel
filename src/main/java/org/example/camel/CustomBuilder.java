@@ -25,17 +25,18 @@ public class CustomBuilder extends RouteBuilder {
 
     private void recipientListWithSedaAndAggregate() {
         var timer = "timer:scheduler";
-        var dispatch = "direct:dispatch";
+        var dispatch = "seda:dispatch";
         var route1 = "seda:route-1";
         var route2 = "seda:route-2";
         var route3 = "seda:route-3";        
         var recipients = String.format("%s,%s,%s",route1,route2,route3);
         var aggregate = "seda:aggregate";
 
-        from(timer + "?period=1000000").routeId(timer)
+        from(timer + "?period=100").routeId(timer)
                 .setHeader(CORRELATION_HEADER, simple("${exchangeId}"))
-                .setBody(simple("TIMER"))
+                .setBody(simple("TIMER ${random(100,201)}"))
                 .log(LoggingLevel.INFO, LOG_NAME,"TIM" + LOG_PATTERN)
+                // aggréger les messages par blocs de 10 puis dispatcher
                 .to(dispatch);
 
         from(dispatch).routeId(dispatch)
