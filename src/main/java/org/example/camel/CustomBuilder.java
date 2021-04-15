@@ -19,11 +19,60 @@ public class CustomBuilder extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        recipientListWithSedaAndAggregate();
-        // recipientListWithDirect();
+        recipientListWithSedaAndAggregate2();
+//        recipientListWithSedaAndAggregate1();
+//        recipientListWithDirect();
     }
 
-    private void recipientListWithSedaAndAggregate() {
+    private void recipientListWithSedaAndAggregate2() {
+        var timer = "timer:scheduler";
+        var dispatch = "seda:dispatch";
+        var route1 = "seda:route-1";
+        var route2 = "seda:route-2";
+        var route3 = "seda:route-3";
+        var recipients = String.format("%s,%s,%s",route1,route2,route3);
+        var aggregate = "seda:aggregate";
+
+        from(timer + "?period=1000").routeId(timer)
+                .setBody(simple("TIMER ${random(100,201)}"))
+                .log(LoggingLevel.INFO, LOG_NAME,"TIM" + LOG_PATTERN)
+                // aggréger les messages par blocs de 10 puis dispatcher
+                .aggregate(constant(true), new CustomAggregationStrategy1())
+                    .completionInterval(10000) // au moins une fois toutes les 10 secondes
+                    .completionSize(5) // grouper par 5
+                    .setHeader(CORRELATION_HEADER, simple("${exchangeId}"))                
+                    .to(dispatch);
+
+        from(dispatch).routeId(dispatch)
+                .recipientList(simple(recipients))
+                .log(LoggingLevel.INFO, LOG_NAME,"010" + LOG_PATTERN)
+                .end();
+
+        from(route1).routeId(route1)
+                .setBody(simple("${body} ROUTE1"))
+                .log(LoggingLevel.INFO, LOG_NAME,"100" + LOG_PATTERN)
+                .process(new CustomProcessor())
+                .to(aggregate);
+
+        from(route2).routeId(route2)
+                .setBody(simple("${body} ROUTE2"))
+                .log(LoggingLevel.INFO, LOG_NAME,"200" + LOG_PATTERN)
+                .process(new CustomProcessor())
+                .to(aggregate);
+
+        from(route3).routeId(route3)
+                .setBody(simple("${body} ROUTE3"))
+                .log(LoggingLevel.INFO, LOG_NAME,"300" + LOG_PATTERN)
+                .process(new CustomProcessor())
+                .to(aggregate);
+
+        from(aggregate).routeId(aggregate)
+                .aggregate(header(CORRELATION_HEADER), new CustomAggregationStrategy2()).completionSize(3)
+                .log(LoggingLevel.INFO, LOG_NAME,"AGG" + LOG_PATTERN);
+
+    }
+    
+    private void recipientListWithSedaAndAggregate1() {
         var timer = "timer:scheduler";
         var dispatch = "seda:dispatch";
         var route1 = "seda:route-1";
@@ -115,6 +164,7 @@ public class CustomBuilder extends RouteBuilder {
             var exchangeId = newExchange.getExchangeId();
             var toEndPoint = newExchange.getProperty(Exchange.TO_ENDPOINT);
             var fromRouteId = newExchange.getFromRouteId();
+            var correlationId = newExchange.getProperty(Exchange.CORRELATION_ID);
             LOGGER.info("800 - {} -> {} -> {}", exchangeId, toEndPoint, fromRouteId);
             
             if (oldExchange == null) {
